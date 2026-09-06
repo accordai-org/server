@@ -3,6 +3,8 @@
 from app.services.llm.base import (
     ChatMessage,
     ChatRole,
+    LLMError,
+    LLMUsage,
     LLMConfigError,
     LLMProvider,
     LLMProviderError,
