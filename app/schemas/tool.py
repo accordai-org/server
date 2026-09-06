@@ -14,12 +14,18 @@ from app.schemas.agent_version import SEMVER_PATTERN
 from app.schemas.common import DomainBase
 from app.schemas.enums import ToolKind
 
+from uuid import UUID
+
 
 class Tool(DomainBase):
     """One versioned tool in the catalog."""
 
     name: str = Field(min_length=1, max_length=255)
     slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    connection_id: UUID | None = Field(
+      default=None,
+      description="Connection that exposes this tool, when applicable."
+    )
     description: str | None = Field(default=None)
     kind: ToolKind = Field(default=ToolKind.FUNCTION)
     version: str = Field(pattern=SEMVER_PATTERN, description="Tool SemVer, e.g. '2.0.1'.")

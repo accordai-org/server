@@ -7,8 +7,8 @@ from app.services.agent.architect import (
 )
 
 from app.services.agent.tool_discovery import (
-  ToolDiscoveryError,
-  ToolDiscovery,
+    ToolDiscovery,
+    ToolDiscoveryError,
 )
 
 
