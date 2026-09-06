@@ -11,6 +11,12 @@ from app.services.agent.tool_discovery import (
     ToolDiscoveryError,
 )
 
+from app.services.agent.runtime import (
+    AgentRuntime,
+    AgentRuntimeError,
+    runtime,
+)
+
 
 __all__ = [
     "AgentArchitect",
@@ -18,4 +24,7 @@ __all__ = [
     "AgentPlanError",
     "ToolDiscovery",
     "ToolDiscoveryError",
+    "AgentRuntime",
+    "AgentRuntimeError",
+    "runtime",
 ]
