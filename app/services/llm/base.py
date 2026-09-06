@@ -97,6 +97,7 @@ class LLMProvider(ABC):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
@@ -106,12 +107,13 @@ class LLMProvider(ABC):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
         """Async chat completion. Defaults to running :meth:`chat` in a thread."""
         return await asyncio.to_thread(
-            self.chat, messages, temperature=temperature, max_tokens=max_tokens
+            self.chat, messages, model=model, temperature=temperature, max_tokens=max_tokens
         )
 
     # ------------------------------------------------------------------
@@ -123,11 +125,12 @@ class LLMProvider(ABC):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> Iterator[StreamChunk]:
         """Yield text deltas (blocking generator)."""
-        result = self.chat(messages, temperature=temperature, max_tokens=max_tokens)
+        result = self.chat(messages, model=model, temperature=temperature, max_tokens=max_tokens)
         if result.content:
             yield StreamChunk(
                 delta=result.content,
@@ -139,11 +142,12 @@ class LLMProvider(ABC):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Yield text deltas asynchronously. Used by the SSE endpoint."""
-        result = await self.achat(messages, temperature=temperature, max_tokens=max_tokens)
+        result = await self.achat(messages, model=model, temperature=temperature, max_tokens=max_tokens)
         if result.content:
             yield StreamChunk(
                 delta=result.content,
@@ -158,6 +162,7 @@ class LLMProvider(ABC):
         self,
         prompt: str,
         *,
+        model: str | None = None,
         system: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
@@ -167,12 +172,13 @@ class LLMProvider(ABC):
         if system:
             messages.append(ChatMessage(role=ChatRole.SYSTEM, content=system))
         messages.append(ChatMessage(role=ChatRole.USER, content=prompt))
-        return self.chat(messages, temperature=temperature, max_tokens=max_tokens)
+        return self.chat(messages, model=model, temperature=temperature, max_tokens=max_tokens)
 
     async def acomplete(
         self,
         prompt: str,
         *,
+        model: str | None = None,
         system: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
@@ -182,4 +188,4 @@ class LLMProvider(ABC):
         if system:
             messages.append(ChatMessage(role=ChatRole.SYSTEM, content=system))
         messages.append(ChatMessage(role=ChatRole.USER, content=prompt))
-        return await self.achat(messages, temperature=temperature, max_tokens=max_tokens)
+        return await self.achat(messages, model=model, temperature=temperature, max_tokens=max_tokens)

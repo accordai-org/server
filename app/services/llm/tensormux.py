@@ -110,21 +110,31 @@ class TensorMuxProvider(LLMProvider):
     def _payload(
         self,
         messages: list[ChatMessage],
+        model: str | None,
         temperature: float | None,
         max_tokens: int | None,
     ) -> dict:
         payload: dict = {
-            "model": self._model,
+            "model": model or self._model,
             "messages": [
-                {"role": m.role.value, "content": m.content} for m in messages
+                {"role": m.role.value, "content": m.content}
+                for m in messages
             ],
         }
-        resolved_temp = temperature if temperature is not None else self._temperature
-        resolved_max = max_tokens if max_tokens is not None else self._max_tokens
+    
+        resolved_temp = (
+            temperature if temperature is not None else self._temperature
+        )
+        resolved_max = (
+            max_tokens if max_tokens is not None else self._max_tokens
+        )
+    
         if resolved_temp is not None:
             payload["temperature"] = resolved_temp
+    
         if resolved_max is not None:
             payload["max_tokens"] = resolved_max
+    
         return payload
 
     @staticmethod

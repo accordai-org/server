@@ -150,6 +150,7 @@ class GoogleProvider(LLMProvider):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
@@ -165,11 +166,11 @@ class GoogleProvider(LLMProvider):
         try:
             if config is None:
                 result = self._client().models.generate_content(
-                    model=self._model, contents=contents
+                    model=model or self._model, contents=contents
                 )
             else:
                 result = self._client().models.generate_content(
-                    model=self._model, contents=contents, config=config
+                    model=model or self._model, contents=contents, config=config
                 )
         except LLMError:
             raise
@@ -177,7 +178,7 @@ class GoogleProvider(LLMProvider):
             raise LLMProviderError(
                 f"Google chat completion failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=model or self._model,
             ) from exc
         latency_ms = int((time.perf_counter() - started) * 1000)
         return _to_response(result, self._model, latency_ms)
@@ -186,6 +187,7 @@ class GoogleProvider(LLMProvider):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
@@ -202,11 +204,11 @@ class GoogleProvider(LLMProvider):
             client = self._client()
             if config is None:
                 result = await client.aio.models.generate_content(
-                    model=self._model, contents=contents
+                    model=model or self._model, contents=contents
                 )
             else:
                 result = await client.aio.models.generate_content(
-                    model=self._model, contents=contents, config=config
+                    model=model or self._model, contents=contents, config=config
                 )
         except LLMError:
             raise
@@ -214,7 +216,7 @@ class GoogleProvider(LLMProvider):
             raise LLMProviderError(
                 f"Google chat completion failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=model or self._model,
             ) from exc
         latency_ms = int((time.perf_counter() - started) * 1000)
         return _to_response(result, self._model, latency_ms)
@@ -222,6 +224,7 @@ class GoogleProvider(LLMProvider):
     def _stream_kwargs(
         self,
         messages: list[ChatMessage],
+        model: str | None,
         temperature: float | None,
         max_tokens: int | None,
     ) -> dict:
@@ -231,7 +234,7 @@ class GoogleProvider(LLMProvider):
             temperature if temperature is not None else self._temperature,
             max_tokens if max_tokens is not None else self._max_tokens,
         )
-        kwargs: dict = {"model": self._model, "contents": contents}
+        kwargs: dict = {"model": model or self._model, "contents": contents}
         if config is not None:
             kwargs["config"] = config
         return kwargs
@@ -240,6 +243,7 @@ class GoogleProvider(LLMProvider):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> Iterator[StreamChunk]:
@@ -247,13 +251,13 @@ class GoogleProvider(LLMProvider):
             raise ValueError("messages must not be empty")
         try:
             chunks = self._client().models.generate_content_stream(
-                **self._stream_kwargs(messages, temperature, max_tokens)
+                **self._stream_kwargs(messages, model, temperature, max_tokens)
             )
             for chunk in chunks:
                 delta = getattr(chunk, "text", None) or ""
                 if delta:
                     yield StreamChunk(
-                        delta=delta, provider=PROVIDER_NAME, model=self._model
+                        delta=delta, provider=PROVIDER_NAME, model=model or self._model
                     )
         except LLMError:
             raise
@@ -261,13 +265,14 @@ class GoogleProvider(LLMProvider):
             raise LLMProviderError(
                 f"Google stream failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=model or self._model,
             ) from exc
 
     async def astream(
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> AsyncIterator[StreamChunk]:
@@ -275,13 +280,13 @@ class GoogleProvider(LLMProvider):
             raise ValueError("messages must not be empty")
         try:
             stream = await self._client().aio.models.generate_content_stream(
-                **self._stream_kwargs(messages, temperature, max_tokens)
+                **self._stream_kwargs(messages, model, temperature, max_tokens)
             )
             async for chunk in stream:
                 delta = getattr(chunk, "text", None) or ""
                 if delta:
                     yield StreamChunk(
-                        delta=delta, provider=PROVIDER_NAME, model=self._model
+                        delta=delta, provider=PROVIDER_NAME, model=model or self._model
                     )
         except LLMError:
             raise
@@ -289,5 +294,5 @@ class GoogleProvider(LLMProvider):
             raise LLMProviderError(
                 f"Google stream failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=model or self._model,
             ) from exc
