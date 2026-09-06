@@ -17,6 +17,8 @@ from app.services.execution.base import (
 )
 from app.services.execution.factory import get_execution_provider
 
+from app.services.execution.e2b import E2BExecutionProvider
+
 __all__ = [
     "ExecutionArtifact",
     "ExecutionConfigurationError",
@@ -32,4 +34,5 @@ __all__ = [
     "ExecutionResult",
     "ExecutionTask",
     "get_execution_provider",
+    "E2BExecutionProvider",
 ]
