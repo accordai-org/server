@@ -2,7 +2,7 @@
 
 Uses Pydantic Settings so every value is validated and typed at startup.
 No credentials or secrets are hardcoded here — secrets must come from the
-environment (or local `.env`, which is gitignored). See `.env.example`.
+environment (or local `.env`, which ies gitignored). See `.env.example`.
 """
 
 from functools import lru_cache
@@ -120,7 +120,8 @@ class Settings(BaseSettings):
     # Execution provider
     # ------------------------------------------------------------------
     execution_provider: str = Field(
-        default="local", description="Code/tool execution backend name."
+        default="e2b",
+        description="Code/tool execution backend name."
     )
     execution_api_key: SecretStr | None = Field(default=None)
     execution_base_url: str | None = Field(default=None)
