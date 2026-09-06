@@ -51,8 +51,9 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # LLM provider (vendor-neutral — resolved by app.services.llm.factory)
     # ------------------------------------------------------------------
-    llm_provider: Literal["tensormux", "google"] = Field(
-        default="tensormux", description="LLM provider name."
+    llm_provider: Literal["tensormux", "google"] | None = Field(
+        default=None,
+        description="Deprecated provider override. Model routing is preferred.",
     )
     llm_api_key: SecretStr | None = Field(
         default=None,
@@ -60,7 +61,7 @@ class Settings(BaseSettings):
     )
     llm_model: str | None = Field(
         default=None,
-        description="Generic model override. When set, wins over provider models.",
+        description="Deprecated generic model override.",
     )
     llm_base_url: str | None = Field(
         default=None, description="Generic base-URL override (TensorMux only)."
@@ -80,6 +81,16 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     google_api_key: SecretStr | None = Field(default=None)
     google_model: str = Field(default="gemini-3.8-flash")
+
+    llm_primary_model: str | None = Field(
+        default=None,
+        description="Primary model used for newly created agents.",
+    )
+    
+    llm_fallback_models: str = Field(
+        default="",
+        description="Comma-separated fallback model IDs.",
+    )
 
     # ------------------------------------------------------------------
     # NeatLogs (mirrors `neatlogs.init()` — see https://docs.neatlogs.com/sdk/python)
@@ -186,6 +197,15 @@ class Settings(BaseSettings):
         if self.neatlogs_api_key is not None:
             kwargs["api_key"] = self.neatlogs_api_key.get_secret_value()
         return kwargs
+
+    @property
+    def fallback_model_list(self) -> list[str]:
+        """Return configured fallback model IDs."""
+        return [
+            model.strip()
+            for model in self.llm_fallback_models.split(",")
+            if model.strip()
+        ]
 
 
 @lru_cache

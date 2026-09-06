@@ -20,6 +20,14 @@ from app.services.llm.base import (
     StreamChunk,
 )
 
+from app.services.llm.factory import (
+    get_fallback_models,
+    get_llm_provider_for_model,
+)
+from app.services.llm.base import (
+    LLMProviderError,
+)
+
 
 @neatlogs.span(
     kind="CHAIN",
@@ -54,13 +62,67 @@ async def achat(
     temperature: float | None = None,
     max_tokens: int | None = None,
 ) -> LLMResponse:
-    """Async chat completion with any provider implementation."""
-    return await provider.achat(
-        messages,
-        model=model,
-        temperature=temperature,
-        max_tokens=max_tokens,
+    """Run chat with automatic model fallback."""
+
+    primary_model = (
+        model
+        or provider.model
     )
+
+    try:
+        active_provider = (
+            get_llm_provider_for_model(
+                primary_model
+            )
+            if model
+            else provider
+        )
+
+        return await active_provider.achat(
+            messages,
+            model=primary_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+    except LLMProviderError as primary_error:
+        fallback_models = [
+            fallback
+            for fallback in get_fallback_models()
+            if fallback != primary_model
+        ]
+
+        if not fallback_models:
+            raise
+
+        last_error: Exception = primary_error
+
+        for fallback_model in fallback_models:
+            try:
+                fallback_provider = (
+                    get_llm_provider_for_model(
+                        fallback_model
+                    )
+                )
+
+                return await fallback_provider.achat(
+                    messages,
+                    model=fallback_model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+
+            except LLMProviderError as fallback_error:
+                last_error = fallback_error
+
+        raise LLMProviderError(
+            (
+                "Primary LLM model and all configured "
+                "fallback models failed."
+            ),
+            provider=primary_error.provider,
+            model=primary_model,
+        ) from last_error
 
 
 def generate_text(

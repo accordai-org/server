@@ -39,6 +39,7 @@ from app.services.llm.base import (
     ChatRole,
 )
 from app.services.llm import service as llm_service
+from app.services.llm.factory import get_primary_model
 
 
 class AgentRuntimeError(Exception):
@@ -711,7 +712,7 @@ class AgentRuntime:
         version = AgentVersion(
             agent_id=agent.id,
             version="1.0.0",
-            model=llm_provider.model,
+            model=get_primary_model(),
             temperature=0.2,
             max_tokens=1024,
             system_prompt=(
