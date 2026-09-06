@@ -9,7 +9,28 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.tool import Tool
 
+
+class ResolvedTool(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tool: Tool
+    config: dict = Field(default_factory=dict)
+
+
+class UnresolvedTool(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    reason: str
+
+
+class ToolResolution(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resolved: list[ResolvedTool] = Field(default_factory=list)
+    unresolved: list[UnresolvedTool] = Field(default_factory=list)
 
 class PlanStepKind(str, Enum):
     """Supported types of agent actions."""

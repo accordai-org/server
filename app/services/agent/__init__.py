@@ -6,8 +6,16 @@ from app.services.agent.architect import (
     AgentPlanError,
 )
 
+from app.services.agent.tool_discovery import (
+  ToolDiscoveryError,
+  ToolDiscovery,
+)
+
+
 __all__ = [
     "AgentArchitect",
     "AgentArchitectError",
     "AgentPlanError",
+    "ToolDiscovery",
+    "ToolDiscoveryError",
 ]
