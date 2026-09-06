@@ -16,8 +16,12 @@ import neatlogs
 
 from app.schemas.agent_version import AgentVersion
 from app.schemas.plan import ExecutionPlan
-from app.services.llm import LLMProvider, service as llm_service
-from app.services.llm.base import ChatMessage, ChatRole, LLMProvider
+from app.services.llm import service as llm_service
+from app.services.llm.base import (
+    ChatMessage,
+    ChatRole,
+    LLMProvider,
+)
 
 
 class AgentArchitectError(Exception):
