@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "e2b>=2.46.4",
     "fastapi[standard]>=0.141.1",
     "neatlogs[langchain,openai]",
     "pydantic-settings>=2.0",
