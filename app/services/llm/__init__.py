@@ -1,48 +1,52 @@
-"""Vendor-neutral LLM access.
-
-Import the interface and entry points from here::
-
-    from app.services.llm import LLMProvider, ChatMessage, get_llm, get_llm_provider
-
-Never import ``app.services.llm.tensormux`` or ``app.services.llm.google``
-outside this package — use :func:`get_llm_provider` / :func:`get_llm`
-so callers stay decoupled from vendors.
-"""
+"""LLM services and provider abstractions."""
 
 from app.services.llm.base import (
     ChatMessage,
     ChatRole,
     LLMConfigError,
-    LLMError,
     LLMProvider,
     LLMProviderError,
     LLMResponse,
-    LLMUsage,
     StreamChunk,
 )
 from app.services.llm.factory import (
-    SUPPORTED_PROVIDERS,
-    SupportedProvider,
-    create_provider,
+    create_provider_for_model,
+    get_fallback_models,
     get_llm,
-    get_llm_provider,
+    get_llm_provider_for_model,
+    get_primary_model,
     reset_llm_provider_cache,
+    resolve_model_provider,
+)
+from app.services.llm.service import (
+    achat,
+    agenerate_text,
+    astream,
+    chat,
+    generate_text,
 )
 
 __all__ = [
     "ChatMessage",
     "ChatRole",
     "LLMConfigError",
-    "LLMError",
     "LLMProvider",
     "LLMProviderError",
     "LLMResponse",
-    "LLMUsage",
     "StreamChunk",
-    "SUPPORTED_PROVIDERS",
-    "SupportedProvider",
-    "create_provider",
+    "achat",
+    "acomplete",
+    "agenerate_text",
+    "astream",
+    "chat",
+    "complete",
+    "create_provider_for_model",
+    "generate_text",
+    "get_fallback_models",
     "get_llm",
-    "get_llm_provider",
+    "get_llm_provider_for_model",
+    "get_primary_model",
     "reset_llm_provider_cache",
+    "resolve_model_provider",
+    "stream",
 ]
