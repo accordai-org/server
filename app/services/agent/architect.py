@@ -87,6 +87,12 @@ class AgentArchitect:
                 f"Failed to generate agent plan: {exc}"
             ) from exc
 
+        if not response.content.strip():
+            raise AgentPlanError(
+                f"Architect model '{response.model}' from "
+                f"provider '{response.provider}' returned an empty response."
+            )
+        
         return self._parse_plan(response.content)
 
     @staticmethod
@@ -157,37 +163,58 @@ The JSON must have exactly this top-level structure:
 
     @staticmethod
     def _parse_plan(content: str) -> ExecutionPlan:
-        """Parse and validate the model's JSON output."""
-
+        """Parse and validate structured Architect output."""
+    
+        if not content or not content.strip():
+            raise AgentPlanError(
+                "Architect returned an empty response."
+            )
+    
         cleaned = content.strip()
-
+    
+        # Remove Markdown code fences.
         if cleaned.startswith("```"):
             lines = cleaned.splitlines()
-
+    
             if lines and lines[0].strip().startswith("```"):
                 lines = lines[1:]
-
+    
             if lines and lines[-1].strip() == "```":
                 lines = lines[:-1]
-
+    
             cleaned = "\n".join(lines).strip()
-
+    
+        # First attempt: entire response is JSON.
         try:
             raw = json.loads(cleaned)
-        except json.JSONDecodeError as exc:
-            raise AgentPlanError(
-                f"Architect returned invalid JSON: {exc}"
-            ) from exc
-
+        except json.JSONDecodeError:
+            # Second attempt: extract the outermost JSON object.
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+    
+            if start == -1 or end == -1 or end <= start:
+                raise AgentPlanError(
+                    "Architect returned no valid JSON object."
+                )
+    
+            try:
+                raw = json.loads(
+                    cleaned[start : end + 1]
+                )
+            except json.JSONDecodeError as exc:
+                raise AgentPlanError(
+                    f"Architect returned invalid JSON: {exc}"
+                ) from exc
+    
         try:
             plan = ExecutionPlan.model_validate(raw)
         except Exception as exc:
             raise AgentPlanError(
                 f"Architect returned an invalid plan: {exc}"
             ) from exc
-
+    
         AgentArchitect._validate_dependencies(plan)
-
+    
         return plan
 
     @staticmethod

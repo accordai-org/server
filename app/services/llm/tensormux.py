@@ -155,6 +155,10 @@ class TensorMuxProvider(LLMProvider):
                 total_tokens=total_tokens,
                 latency_ms=latency_ms,
             )
+        print(
+          "TensorMux raw response:",
+          result,
+        )
         return LLMResponse(
             content=content,
             model=getattr(result, "model", None) or model,  # type: ignore[attr-defined]

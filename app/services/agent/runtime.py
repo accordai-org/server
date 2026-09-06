@@ -714,7 +714,7 @@ class AgentRuntime:
             version="1.0.0",
             model=get_primary_model(),
             temperature=0.2,
-            max_tokens=1024,
+            max_tokens=4098,
             system_prompt=(
                 "You are an Accord agent created for the user's "
                 "requested objective. Follow the user's task carefully."
