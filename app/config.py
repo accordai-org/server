@@ -49,25 +49,37 @@ class Settings(BaseSettings):
     cors_allow_headers: list[str] = Field(default_factory=lambda: ["*"])
 
     # ------------------------------------------------------------------
-    # LLM provider (generic — e.g. OpenAI-compatible)
+    # LLM provider (vendor-neutral — resolved by app.services.llm.factory)
     # ------------------------------------------------------------------
-    llm_provider: str = Field(default="openai", description="LLM provider name.")
-    llm_api_key: SecretStr | None = Field(
-        default=None, description="LLM provider API key. Never hardcode."
+    llm_provider: Literal["tensormux", "google"] = Field(
+        default="tensormux", description="LLM provider name."
     )
-    llm_model: str = Field(default="gpt-4o-mini", description="Default LLM model.")
+    llm_api_key: SecretStr | None = Field(
+        default=None,
+        description="Generic LLM API key fallback. Prefer provider-specific keys.",
+    )
+    llm_model: str | None = Field(
+        default=None,
+        description="Generic model override. When set, wins over provider models.",
+    )
     llm_base_url: str | None = Field(
-        default=None, description="Optional custom base URL for the LLM provider."
+        default=None, description="Generic base-URL override (TensorMux only)."
     )
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=1024, gt=0)
 
     # ------------------------------------------------------------------
-    # TensorMux
+    # TensorMux (OpenAI-compatible; default model GLM-4.7-Flash)
     # ------------------------------------------------------------------
     tensormux_api_key: SecretStr | None = Field(default=None)
-    tensormux_base_url: str = Field(default="https://api.tensormux.com")
-    tensormux_model: str = Field(default="tensormux-default")
+    tensormux_base_url: str = Field(default="https://api.tensormux.com/v1")
+    tensormux_model: str = Field(default="zai-org/GLM-4.7-Flash")
+
+    # ------------------------------------------------------------------
+    # Google (google-genai SDK; default model gemini-3.8-flash)
+    # ------------------------------------------------------------------
+    google_api_key: SecretStr | None = Field(default=None)
+    google_model: str = Field(default="gemini-3.8-flash")
 
     # ------------------------------------------------------------------
     # NeatLogs (mirrors `neatlogs.init()` — see https://docs.neatlogs.com/sdk/python)

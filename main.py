@@ -5,12 +5,14 @@ under `/api/v1`, and thin root aliases. Business logic lives in
 `app.services`, HTTP wiring lives in `app.api`.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_v1_router
 from app.config import settings
 from app.services import health_service
+from app.services.llm import LLMConfigError, LLMError
 
 
 def create_app() -> FastAPI:
@@ -28,6 +30,14 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_v1_router)
+
+    # Map vendor-neutral LLM failures to HTTP: misconfiguration (no key,
+    # unknown provider — raised from the `get_llm` dependency) is a 500;
+    # upstream provider failures are a 502.
+    @app.exception_handler(LLMError)
+    async def llm_error_handler(_request: Request, exc: LLMError):
+        status = 500 if isinstance(exc, LLMConfigError) else 502
+        return JSONResponse(status_code=status, content={"detail": str(exc)})
 
     @app.get("/", tags=["health"], summary="Root")
     def read_root():
