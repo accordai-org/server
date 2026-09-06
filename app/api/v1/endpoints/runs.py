@@ -22,7 +22,7 @@ router = APIRouter(
 )
 async def stream_run(
     run_id: UUID,
-) -> StreamingResponse::
+) -> StreamingResponse:
     async def event_generator():
         async for event in event_bus.subscribe(run_id):
             yield (
