@@ -160,12 +160,17 @@ class ExecutionArtifact(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class ExecutionProvider(ABC):
-    """Abstract interface implemented by every execution backend.
+class ExecutionHandle(BaseModel):
+    """Handle returned immediately after an execution starts."""
 
-    Implementations are responsible for translating these operations into
-    provider-specific APIs. Callers must never depend on provider SDKs.
-    """
+    model_config = ConfigDict(extra="forbid")
+
+    execution_id: UUID
+    environment_id: UUID
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class ExecutionProvider(ABC):
+    """Abstract interface implemented by every execution backend."""
 
     @property
     @abstractmethod
@@ -180,20 +185,40 @@ class ExecutionProvider(ABC):
         """Create and prepare an isolated execution environment."""
 
     @abstractmethod
+    async def start_execution(
+        self,
+        environment: ExecutionEnvironment,
+        task: ExecutionTask,
+    ) -> ExecutionHandle:
+        """Start execution and return its handle immediately."""
+
+    @abstractmethod
+    async def wait_execution(
+        self,
+        handle: ExecutionHandle,
+    ) -> ExecutionResult:
+        """Wait for a started execution to finish."""
+
     async def execute(
         self,
         environment: ExecutionEnvironment,
         task: ExecutionTask,
     ) -> ExecutionResult:
-        """Execute one task inside an existing environment."""
+        """Start and wait for an execution."""
+
+        handle = await self.start_execution(
+            environment,
+            task,
+        )
+
+        return await self.wait_execution(handle)
 
     @abstractmethod
     async def stream_events(
         self,
-        environment: ExecutionEnvironment,
-        execution_id: UUID,
+        handle: ExecutionHandle,
     ) -> AsyncIterator[ExecutionEvent]:
-        """Stream events produced by an execution."""
+        """Stream events for a started execution."""
 
     @abstractmethod
     async def collect_artifacts(
@@ -210,9 +235,4 @@ class ExecutionProvider(ABC):
         """Destroy the isolated environment and release its resources."""
 
     async def close(self) -> None:
-        """Release provider-level resources.
-
-        Providers that maintain HTTP clients, connection pools, or other
-        process-level resources can override this method.
-        """
-        return None
+        """Release provider-level resources."""

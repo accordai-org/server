@@ -24,6 +24,7 @@ from app.services.execution.base import (
     ExecutionEvent,
     ExecutionEventKind,
     ExecutionFile,
+    ExecutionHandle,
     ExecutionProvider,
     ExecutionProviderError,
     ExecutionRequest,
@@ -34,14 +35,17 @@ from app.services.execution.base import (
 
 @dataclass
 class _E2BExecution:
-    """Internal state for one running/completed E2B command."""
+    """Internal state for one E2B execution."""
 
     execution_id: UUID
     environment_id: UUID
+    command: Any | None = None
     events: asyncio.Queue[ExecutionEvent | None] = field(
         default_factory=asyncio.Queue
     )
     sequence: int = 0
+    result: ExecutionResult | None = None
+    started_at: float = field(default_factory=time.monotonic)
 
     def next_sequence(self) -> int:
         sequence = self.sequence
@@ -157,23 +161,24 @@ class E2BExecutionProvider(ExecutionProvider):
                 file.content,
             )
 
-    async def execute(
+    async def start_execution(
         self,
         environment: ExecutionEnvironment,
         task: ExecutionTask,
-    ) -> ExecutionResult:
-        """Execute a command inside an E2B sandbox."""
-
+    ) -> ExecutionHandle:
+        """Start an E2B command without waiting for completion."""
+    
         sandbox = self._get_sandbox(environment)
-
+    
         execution_id = uuid4()
+    
         execution = _E2BExecution(
             execution_id=execution_id,
             environment_id=environment.id,
         )
-
+    
         self._executions[execution_id] = execution
-
+    
         await self._emit(
             execution,
             ExecutionEventKind.STARTED,
@@ -182,32 +187,33 @@ class E2BExecutionProvider(ExecutionProvider):
                 "args": task.args,
             },
         )
-
-        command = self._build_command(task.command, task.args)
-
-        started_at = time.monotonic()
-
+    
+        command = self._build_command(
+            task.command,
+            task.args,
+        )
+    
+        timeout = (
+            task.timeout_seconds
+            or self._default_timeout_seconds
+        )
+    
         async def on_stdout(data: str) -> None:
             await self._emit(
                 execution,
                 ExecutionEventKind.STDOUT,
                 data,
             )
-
+    
         async def on_stderr(data: str) -> None:
             await self._emit(
                 execution,
                 ExecutionEventKind.STDERR,
                 data,
             )
-
-        timeout = (
-            task.timeout_seconds
-            or self._default_timeout_seconds
-        )
-
+    
         try:
-            result = await sandbox.commands.run(
+            execution.command = await sandbox.commands.run(
                 command,
                 background=True,
                 envs=task.environment or None,
@@ -216,41 +222,71 @@ class E2BExecutionProvider(ExecutionProvider):
                 on_stderr=on_stderr,
                 timeout=timeout,
             )
-
-            try:
-                command_result = await result.wait()
-            except Exception as exc:
-                duration_ms = int(
-                    (time.monotonic() - started_at) * 1000
-                )
-
-                await self._emit(
-                    execution,
-                    ExecutionEventKind.FAILED,
-                    str(exc),
-                )
-
-                return ExecutionResult(
-                    execution_id=execution_id,
-                    environment_id=environment.id,
-                    exit_code=getattr(result, "exit_code", None),
-                    stdout=result.stdout,
-                    stderr=result.stderr,
-                    timed_out=False,
-                    duration_ms=duration_ms,
-                    metadata={
-                        "provider": self.name,
-                        "error": str(exc),
-                    },
-                )
-
-            duration_ms = int(
-                (time.monotonic() - started_at) * 1000
+        except Exception as exc:
+            await self._emit(
+                execution,
+                ExecutionEventKind.FAILED,
+                str(exc),
             )
+    
+            await execution.events.put(None)
+    
+            self._executions.pop(
+                execution_id,
+                None,
+            )
+    
+            raise ExecutionProviderError(
+                f"E2B execution failed to start: {exc}"
+            ) from exc
+    
+        return ExecutionHandle(
+            execution_id=execution_id,
+            environment_id=environment.id,
+            metadata={
+                "provider": self.name,
+                "sandbox_id": environment.external_id,
+                "pid": execution.command.pid,
+            },
+        )
 
-            execution_result = ExecutionResult(
-                execution_id=execution_id,
-                environment_id=environment.id,
+    async def wait_execution(
+        self,
+        handle: ExecutionHandle,
+    ) -> ExecutionResult:
+        """Wait for a started E2B execution."""
+    
+        execution = self._executions.get(
+            handle.execution_id
+        )
+    
+        if execution is None:
+            raise ExecutionProviderError(
+                f"Unknown execution: {handle.execution_id}"
+            )
+    
+        command = execution.command
+    
+        if command is None:
+            raise ExecutionProviderError(
+                f"Execution {handle.execution_id} "
+                "has no command handle."
+            )
+    
+        try:
+            command_result = await command.wait()
+    
+            duration_ms = int(
+                (
+                    time.monotonic()
+                    - execution.started_at
+                )
+                * 1000
+            )
+    
+            execution.result = ExecutionResult(
+                execution_id=handle.execution_id,
+                environment_id=handle.environment_id,
                 exit_code=command_result.exit_code,
                 stdout=command_result.stdout,
                 stderr=command_result.stderr,
@@ -258,11 +294,10 @@ class E2BExecutionProvider(ExecutionProvider):
                 duration_ms=duration_ms,
                 metadata={
                     "provider": self.name,
-                    "sandbox_id": environment.external_id,
-                    "pid": result.pid,
+                    **handle.metadata,
                 },
             )
-
+    
             await self._emit(
                 execution,
                 ExecutionEventKind.COMPLETED,
@@ -271,52 +306,70 @@ class E2BExecutionProvider(ExecutionProvider):
                     "duration_ms": duration_ms,
                 },
             )
-
-            return execution_result
-
+    
+            return execution.result
+    
         except Exception as exc:
             duration_ms = int(
-                (time.monotonic() - started_at) * 1000
+                (
+                    time.monotonic()
+                    - execution.started_at
+                )
+                * 1000
             )
-
+    
             await self._emit(
                 execution,
                 ExecutionEventKind.FAILED,
                 str(exc),
             )
-
-            raise ExecutionProviderError(
-                f"E2B execution failed: {exc}"
-            ) from exc
-
+    
+            execution.result = ExecutionResult(
+                execution_id=handle.execution_id,
+                environment_id=handle.environment_id,
+                exit_code=None,
+                stdout="",
+                stderr=str(exc),
+                timed_out=False,
+                duration_ms=duration_ms,
+                metadata={
+                    "provider": self.name,
+                    "error": str(exc),
+                    **handle.metadata,
+                },
+            )
+    
+            return execution.result
+    
         finally:
             await execution.events.put(None)
-
+        
     async def stream_events(
         self,
-        environment: ExecutionEnvironment,
-        execution_id: UUID,
+        handle: ExecutionHandle,
     ):
-        """Stream events generated by an execution."""
-
-        execution = self._executions.get(execution_id)
-
+        """Stream events for an execution."""
+    
+        execution = self._executions.get(
+            handle.execution_id
+        )
+    
         if execution is None:
             raise ExecutionProviderError(
-                f"Unknown execution: {execution_id}"
+                f"Unknown execution: {handle.execution_id}"
             )
-
-        if execution.environment_id != environment.id:
+    
+        if execution.environment_id != handle.environment_id:
             raise ExecutionProviderError(
                 "Execution does not belong to the supplied environment."
             )
-
+    
         while True:
             event = await execution.events.get()
-
+    
             if event is None:
                 break
-
+    
             yield event
 
     async def collect_artifacts(
