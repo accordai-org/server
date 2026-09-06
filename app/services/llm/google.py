@@ -12,6 +12,8 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator, Iterator
 
+from app.services.observability.neatlogs import wrap_client
+
 from app.services.llm.base import (
     ChatMessage,
     ChatRole,
@@ -133,10 +135,16 @@ class GoogleProvider(LLMProvider):
     def model(self) -> str:
         return self._model
 
-    def _client(self):  # type: ignore[no-untyped-def]
+    def _client(self):
         from google import genai
-
-        return genai.Client(api_key=self._api_key)
+    
+        client = genai.Client(api_key=self._api_key)
+    
+        return wrap_client(
+            client,
+            provider=PROVIDER_NAME,
+            model=self._model,
+        )
 
     def chat(
         self,

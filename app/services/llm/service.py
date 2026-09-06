@@ -8,6 +8,8 @@ into here (or use the provider directly via the ``get_llm`` dependency).
 
 from __future__ import annotations
 
+import neatlogs
+
 from collections.abc import AsyncIterator
 
 from app.services.llm.base import (
@@ -19,6 +21,10 @@ from app.services.llm.base import (
 )
 
 
+@neatlogs.span(
+    kind="CHAIN",
+    name="llm.chat",
+)
 def chat(
     messages: list[ChatMessage],
     provider: LLMProvider,
@@ -27,9 +33,17 @@ def chat(
     max_tokens: int | None = None,
 ) -> LLMResponse:
     """Run a chat completion with any provider implementation."""
-    return provider.chat(messages, temperature=temperature, max_tokens=max_tokens)
+    return provider.chat(
+        messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
 
 
+@neatlogs.span(
+    kind="CHAIN",
+    name="llm.chat",
+)
 async def achat(
     messages: list[ChatMessage],
     provider: LLMProvider,
@@ -38,7 +52,11 @@ async def achat(
     max_tokens: int | None = None,
 ) -> LLMResponse:
     """Async chat completion with any provider implementation."""
-    return await provider.achat(messages, temperature=temperature, max_tokens=max_tokens)
+    return await provider.achat(
+        messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
 
 
 def generate_text(

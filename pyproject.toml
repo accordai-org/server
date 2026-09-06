@@ -8,7 +8,7 @@ dependencies = [
     "e2b>=2.46.4",
     "fastapi[standard]>=0.141.1",
     "google-genai>=1.0",
-    "neatlogs[langchain,openai]",
+    "neatlogs[google-genai,langchain,openai]",
     "openai>=1.0",
     "pydantic-settings>=2.0",
 ]

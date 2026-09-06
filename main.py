@@ -5,6 +5,8 @@ under `/api/v1`, and thin root aliases. Business logic lives in
 `app.services`, HTTP wiring lives in `app.api`.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,10 +15,29 @@ from app.api.v1.router import api_v1_router
 from app.config import settings
 from app.services import health_service
 from app.services.llm import LLMConfigError, LLMError
+from app.services.observability import (
+  initialize_neatlogs,
+  shutdown_neatlogs,
+)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+  """Initialize and clean up process-level services."""
+  initialize_neatlogs()
+
+  try:
+    yield
+  finally:
+    shutdown_neatlogs()
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title=settings.app_name, version=settings.app_version)
+    app = FastAPI(
+      title=settings.app_name, 
+      version=settings.app_version,
+      lifespan=lifespan,
+    )
 
     # Permissive CORS for local development (Nuxt on 8000/8080 or any
     # other origin). Tighten this before production.

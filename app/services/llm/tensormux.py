@@ -24,6 +24,8 @@ from app.services.llm.base import (
     StreamChunk,
 )
 
+from app.services.observability.neatlogs import wrap_client
+
 DEFAULT_BASE_URL = "https://api.tensormux.com/v1"
 DEFAULT_MODEL = "zai-org/GLM-4.7-Flash"
 PROVIDER_NAME = "tensormux"
@@ -75,23 +77,35 @@ class TensorMuxProvider(LLMProvider):
     # ------------------------------------------------------------------
     # Internal helpers (kept private so callers stay on the interface).
     # ------------------------------------------------------------------
-    def _client(self):  # type: ignore[no-untyped-def]
+    def _client(self):
         from openai import OpenAI
-
-        return OpenAI(
+    
+        client = OpenAI(
             api_key=self._api_key,
             base_url=self._base_url,
             timeout=self._timeout_seconds,
         )
-
-    def _aclient(self):  # type: ignore[no-untyped-def]
-        from openai import AsyncOpenAI
-
-        return AsyncOpenAI(
-            api_key=self._api_key,
-            base_url=self._base_url,
-            timeout=self._timeout_seconds,
+    
+        return wrap_client(
+            client,
+            provider=PROVIDER_NAME,
+            model=self._model,
         )
+
+    def _aclient(self):
+      from openai import AsyncOpenAI
+    
+      client = AsyncOpenAI(
+        api_key=self._api_key,
+        base_url=self._base_url,
+        timeout=self._timeout_seconds,
+      )
+    
+      return wrap_client(
+        client,
+        provider=PROVIDER_NAME,
+        model=self._model,
+      )
 
     def _payload(
         self,
