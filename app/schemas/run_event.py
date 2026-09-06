@@ -21,6 +21,8 @@ class RunEventKind(str, Enum):
     TOOL_COMPLETED = "tool.completed"
     TOOL_FAILED = "tool.failed"
 
+    RESPONSE_DELTA = "response.delta"
+
     EVALUATION_COMPLETED = "evaluation.completed"
 
     RUN_COMPLETED = "run.completed"

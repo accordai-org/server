@@ -170,12 +170,14 @@ class TensorMuxProvider(LLMProvider):
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
         if not messages:
             raise ValueError("messages must not be empty")
-        payload = self._payload(messages, temperature, max_tokens)
+        resolved_model = model or self._model
+        payload = self._payload(messages, model, temperature, max_tokens)
         started = time.perf_counter()
         try:
             result = self._client().chat.completions.create(**payload)
@@ -185,21 +187,23 @@ class TensorMuxProvider(LLMProvider):
             raise LLMProviderError(
                 f"TensorMux chat completion failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=resolved_model,
             ) from exc
         latency_ms = int((time.perf_counter() - started) * 1000)
-        return self._to_response(result, self._model, latency_ms)
+        return self._to_response(result, resolved_model, latency_ms)
 
     async def achat(
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
         if not messages:
             raise ValueError("messages must not be empty")
-        payload = self._payload(messages, temperature, max_tokens)
+        resolved_model = model or self._model
+        payload = self._payload(messages, model, temperature, max_tokens)
         started = time.perf_counter()
         try:
             result = await self._aclient().chat.completions.create(**payload)
@@ -209,21 +213,23 @@ class TensorMuxProvider(LLMProvider):
             raise LLMProviderError(
                 f"TensorMux chat completion failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=resolved_model,
             ) from exc
         latency_ms = int((time.perf_counter() - started) * 1000)
-        return self._to_response(result, self._model, latency_ms)
+        return self._to_response(result, resolved_model, latency_ms)
 
     def stream(
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> Iterator[StreamChunk]:
         if not messages:
             raise ValueError("messages must not be empty")
-        payload = self._payload(messages, temperature, max_tokens)
+        resolved_model = model or self._model
+        payload = self._payload(messages, model, temperature, max_tokens)
         payload["stream"] = True
         try:
             chunks = self._client().chat.completions.create(**payload)
@@ -231,7 +237,7 @@ class TensorMuxProvider(LLMProvider):
                 delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
                 if delta:
                     yield StreamChunk(
-                        delta=delta, provider=PROVIDER_NAME, model=self._model
+                        delta=delta, provider=PROVIDER_NAME, model=resolved_model
                     )
         except LLMError:
             raise
@@ -239,19 +245,21 @@ class TensorMuxProvider(LLMProvider):
             raise LLMProviderError(
                 f"TensorMux stream failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=resolved_model,
             ) from exc
 
     async def astream(
         self,
         messages: list[ChatMessage],
         *,
+        model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> AsyncIterator[StreamChunk]:
         if not messages:
             raise ValueError("messages must not be empty")
-        payload = self._payload(messages, temperature, max_tokens)
+        resolved_model = model or self._model
+        payload = self._payload(messages, model, temperature, max_tokens)
         payload["stream"] = True
         try:
             stream = await self._aclient().chat.completions.create(**payload)
@@ -259,7 +267,7 @@ class TensorMuxProvider(LLMProvider):
                 delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
                 if delta:
                     yield StreamChunk(
-                        delta=delta, provider=PROVIDER_NAME, model=self._model
+                        delta=delta, provider=PROVIDER_NAME, model=resolved_model
                     )
         except LLMError:
             raise
@@ -267,5 +275,5 @@ class TensorMuxProvider(LLMProvider):
             raise LLMProviderError(
                 f"TensorMux stream failed: {exc}",
                 provider=PROVIDER_NAME,
-                model=self._model,
+                model=resolved_model,
             ) from exc

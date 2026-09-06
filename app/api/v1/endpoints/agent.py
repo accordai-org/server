@@ -98,21 +98,6 @@ async def agent_chat(
                     )
 
                 elif event.kind is RunEventKind.RUN_COMPLETED:
-                    content = event.data.get(
-                        "content",
-                        "",
-                    )
-
-                    for index in range(
-                        0,
-                        len(content),
-                        120,
-                    ):
-                        yield (
-                            "event: delta\n"
-                            f"data: {json.dumps({'content': content[index:index + 120]})}\n\n"
-                        )
-
                     yield (
                         "event: tools\n"
                         f"data: {json.dumps({'tools': body.tools})}\n\n"
@@ -127,6 +112,11 @@ async def agent_chat(
                     yield (
                         "event: error\n"
                         f"data: {json.dumps({'message': event.data.get('message', 'Agent run failed.')})}\n\n"
+                    )
+                elif event.kind is RunEventKind.RESPONSE_DELTA:
+                    yield (
+                        "event: delta\n"
+                        f"data: {json.dumps({'content': event.data.get('content', '')})}\n\n"
                     )
 
             try:

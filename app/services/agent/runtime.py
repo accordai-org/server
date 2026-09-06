@@ -253,11 +253,12 @@ class AgentRuntime:
             )
 
             final_response = await self._generate_response(
-                version=version,
-                prompt=prompt,
-                plan=plan,
-                execution_context=execution_context,
-                history=history,
+              run=run,
+              version=version,
+              prompt=prompt,
+              plan=plan,
+              execution_context=execution_context,
+              history=history,
             )
 
             run.outputs = {
@@ -474,33 +475,34 @@ class AgentRuntime:
     async def _generate_response(
         self,
         *,
+        run: Run,
         version: AgentVersion,
         prompt: str,
         plan: ExecutionPlan,
         execution_context: list[dict[str, Any]],
         history: list[dict[str, str]],
     ) -> str:
-        """Generate the final response from the completed run context."""
-
+        """Generate the final response and publish live deltas."""
+    
         messages = [
             ChatMessage(
                 role=ChatRole.SYSTEM,
                 content=version.system_prompt or "",
             )
         ]
-
+    
         for item in history:
             role = (
                 ChatRole.ASSISTANT
                 if item.get("role") == "assistant"
                 else ChatRole.USER
             )
-
+    
             content = item.get(
                 "content",
                 "",
             ).strip()
-
+    
             if content:
                 messages.append(
                     ChatMessage(
@@ -508,30 +510,42 @@ class AgentRuntime:
                         content=content,
                     )
                 )
-
+    
         messages.append(
             ChatMessage(
                 role=ChatRole.USER,
                 content=(
                     f"Original task:\n{prompt}\n\n"
-                    f"Execution plan:\n"
-                    f"{plan.model_dump_json()}\n\n"
+                    f"Execution plan:\n{plan.model_dump_json()}\n\n"
                     f"Execution results:\n"
                     f"{execution_context}\n\n"
                     "Produce the final useful response to the user."
                 ),
             )
         )
-
-        response = await llm_service.achat(
+    
+        chunks: list[str] = []
+    
+        async for chunk in self._architect._provider.astream(
             messages,
-            self._architect._provider,
             model=version.model,
             temperature=version.temperature,
             max_tokens=version.max_tokens,
-        )
-
-        return response.content
+        ):
+            if not chunk.delta:
+                continue
+    
+            chunks.append(chunk.delta)
+    
+            await self._publish(
+                run,
+                RunEventKind.RESPONSE_DELTA,
+                {
+                    "content": chunk.delta,
+                },
+            )
+    
+        return "".join(chunks)
 
     async def _evaluate(
         self,
